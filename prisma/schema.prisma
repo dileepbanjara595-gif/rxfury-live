@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  systematicId       String   @unique // FURY-XXXXX
+  firstName          String?
+  lastName           String?
+  dob                DateTime?
+  profilePhoto       String?  @db.Text
+  email              String?  @unique
+  phone              String?  @unique
+  passwordHash       String
+  mainWalletBalance  Float    @default(0.0)
+  bonusWalletBalance Float    @default(0.0)
+  vipLevel           Int      @default(1)
+  role               Role     @default(USER)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Self-relation for Affiliate MLM
+  referredById String?
+  referredBy   User?   @relation("AffiliateNetwork", fields: [referredById], references: [id])
+
+  referrals    User[]  @relation("AffiliateNetwork")
+
+  transactions      Transaction[]
+  gameHistories     GameHistory[]
+  commissionsEarned AffiliateCommission[] @relation("CommissionEarner")
+  commissionsGiven  AffiliateCommission[] @relation("CommissionGiver")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      TxType
+  amount    Float
+  currency  String   @default("INR")
+  utrOrHash String? // User uploaded reference
+  status    TxStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TxType {
+  DEPOSIT
+  WITHDRAWAL
+  BONUS
+}
+
+enum TxStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model GameHistory {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  gameName      String
+  sessionId     String
+  betAmount     Float
+  winLossStatus WinStatus
+  payoutAmount  Float
+  createdAt     DateTime  @default(now())
+}
+
+enum WinStatus {
+  WIN
+  LOSS
+}
+
+model GameSession {
+  id            String        @id @default(uuid())
+  gameName      String
+  serverSeed    String
+  resultOutcome String?
+  status        SessionStatus @default(BETTING)
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
+}
+
+enum SessionStatus {
+  BETTING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model AffiliateCommission {
+  id         String   @id @default(uuid())
+  userId     String // User who earns the commission
+  fromUserId String // User whose action generated the commission
+  tier       Int // 1, 2, or 3
+  amount     Float
+  createdAt  DateTime @default(now())
+
+  user     User @relation("CommissionEarner", fields: [userId], references: [id])
+  fromUser User @relation("CommissionGiver", fields: [fromUserId], references: [id])
+}
+
+model OTP {
+  id        String   @id @default(uuid())
+  email     String?
+  phone     String?
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
